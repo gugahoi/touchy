@@ -145,7 +145,7 @@ private struct GestureRow: View {
     @ObservedObject var recorder: KeyRecorder
 
     private var isRecording: Bool { recorder.recordingID == gesture.id }
-    private var combo: KeyCombo? { store.combo(for: gesture) }
+    private var action: GestureAction? { store.action(for: gesture) }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -155,10 +155,10 @@ private struct GestureRow: View {
                 Text("⚠︎").help("Also used by macOS by default")
             }
             Spacer()
-            comboControl
-            if combo != nil {
+            actionControl
+            if action != nil {
                 Button {
-                    store.setCombo(nil, for: gesture)
+                    store.setAction(nil, for: gesture)
                 } label: { Image(systemName: "xmark.circle.fill") }
                     .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
@@ -182,21 +182,51 @@ private struct GestureRow: View {
         .foregroundStyle(.secondary)
     }
 
-    @ViewBuilder private var comboControl: some View {
-        Button {
-            if isRecording {
+    // Common click presets offered in the menu.
+    private static let clickPresets: [MouseClick] = [
+        MouseClick(button: .left),
+        MouseClick(button: .left, command: true),
+        MouseClick(button: .left, option: true),
+        MouseClick(button: .left, control: true),
+        MouseClick(button: .left, shift: true),
+        MouseClick(button: .right),
+        MouseClick(button: .middle),
+    ]
+
+    @ViewBuilder private var actionControl: some View {
+        if isRecording {
+            Button {
                 recorder.stop()
-            } else {
-                recorder.startRecording(for: gesture.id) { captured in
-                    store.setCombo(captured, for: gesture)
-                }
+            } label: {
+                Text("Press keys…")
+                    .font(.system(.body, design: .monospaced))
+                    .frame(minWidth: 110)
+                    .foregroundStyle(Color.accentColor)
             }
-        } label: {
-            Text(isRecording ? "Press keys…" : (combo?.display ?? "Set shortcut"))
-                .font(.system(.body, design: .monospaced))
-                .frame(minWidth: 96)
-                .foregroundStyle(isRecording ? Color.accentColor : (combo == nil ? .secondary : .primary))
+            .buttonStyle(.bordered)
+            .help("Press a shortcut, or Esc to cancel")
+        } else {
+            Menu {
+                Button("Record Keyboard Shortcut…") {
+                    recorder.startRecording(for: gesture.id) { captured in
+                        store.setAction(.key(captured), for: gesture)
+                    }
+                }
+                Menu("Mouse Click") {
+                    ForEach(Self.clickPresets, id: \.self) { preset in
+                        Button(preset.display) {
+                            store.setAction(.click(preset), for: gesture)
+                        }
+                    }
+                }
+            } label: {
+                Text(action?.display ?? "Set action")
+                    .font(.system(.body, design: .monospaced))
+                    .frame(minWidth: 110)
+                    .foregroundStyle(action == nil ? .secondary : .primary)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
         }
-        .buttonStyle(.bordered)
     }
 }

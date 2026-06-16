@@ -1,15 +1,18 @@
 import Foundation
 import Combine
 
-/// Holds gesture→key-combo bindings and the global enable flag, persisted as JSON
-/// in Application Support. Observable so the UI updates live; thread-safe reads via
-/// a lock so the multitouch callback thread can look up bindings without hopping.
+/// Holds gesture→action bindings and the global enable flag, persisted as JSON in
+/// Application Support. Observable so the UI updates live; thread-safe reads via a
+/// lock so the multitouch callback thread can look up bindings without hopping.
+///
+/// Legacy `bindings.json` files stored bare `KeyCombo` dicts as values; those
+/// decode transparently as `.key` actions (see `GestureAction.init(from:)`).
 final class BindingStore: ObservableObject {
     static let shared = BindingStore()
 
     struct Persisted: Codable {
         var enabled: Bool
-        var bindings: [String: KeyCombo]
+        var bindings: [String: GestureAction]
     }
 
     @Published var enabled: Bool {
@@ -17,7 +20,7 @@ final class BindingStore: ObservableObject {
     }
 
     /// Keyed by `Gesture.id`.
-    @Published private(set) var bindings: [String: KeyCombo] {
+    @Published private(set) var bindings: [String: GestureAction] {
         didSet { snapshotAndSave() }
     }
 
@@ -42,15 +45,25 @@ final class BindingStore: ObservableObject {
             bindings = [:]
             snapshot = Persisted(enabled: true, bindings: [:])
         }
+        if ProcessInfo.processInfo.environment["TOUCHY_DEBUG"] != nil {
+            let summary = bindings.keys.sorted().map { key -> String in
+                switch bindings[key]! {
+                case .key: return "\(key)=key"
+                case .click: return "\(key)=click"
+                }
+            }.joined(separator: " ")
+            FileHandle.standardError.write(
+                Data("[touchy] loaded \(bindings.count) binding(s): \(summary)\n".utf8))
+        }
     }
 
-    func combo(for gesture: Gesture) -> KeyCombo? {
+    func action(for gesture: Gesture) -> GestureAction? {
         bindings[gesture.id]
     }
 
-    func setCombo(_ combo: KeyCombo?, for gesture: Gesture) {
-        if let combo {
-            bindings[gesture.id] = combo
+    func setAction(_ action: GestureAction?, for gesture: Gesture) {
+        if let action {
+            bindings[gesture.id] = action
         } else {
             bindings.removeValue(forKey: gesture.id)
         }
@@ -58,7 +71,7 @@ final class BindingStore: ObservableObject {
 
     /// Lock-protected lookup safe to call from the multitouch callback thread.
     /// Returns nil when globally disabled.
-    func activeCombo(forGestureID id: String) -> KeyCombo? {
+    func activeAction(forGestureID id: String) -> GestureAction? {
         lock.lock(); defer { lock.unlock() }
         guard snapshot.enabled else { return nil }
         return snapshot.bindings[id]

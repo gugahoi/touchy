@@ -28,17 +28,17 @@ final class GestureEngine: ObservableObject {
     /// `KeyCombo.display` (Text Input Source APIs) and `@Published` updates must run
     /// on the main thread, so everything else is dispatched.
     private func handle(_ gesture: Gesture) {
-        let combo = store.activeCombo(forGestureID: gesture.id)
-        if let combo {
-            KeyEmitter.post(combo)
+        let action = store.activeAction(forGestureID: gesture.id)
+        if let action {
+            KeyEmitter.perform(action)
         }
         DispatchQueue.main.async {
             if ProcessInfo.processInfo.environment["TOUCHY_DEBUG"] != nil {
                 FileHandle.standardError.write(
-                    Data("[touchy] recognized \(gesture.displayName) -> \(combo?.display ?? "(unbound)")\n".utf8))
+                    Data("[touchy] recognized \(gesture.displayName) -> \(action?.display ?? "(unbound)")\n".utf8))
             }
             self.lastGesture = gesture
-            self.lastGestureFired = (combo != nil)
+            self.lastGestureFired = (action != nil)
             self.lastGestureAt = Date()
         }
     }

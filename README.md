@@ -36,8 +36,14 @@ signature.
 ## Configuring gestures
 
 1. Click the menu-bar icon to open the config window.
-2. Next to a gesture, click **Set shortcut** and press the key combo you want
-   (e.g. ⌘⇧4). Press **Esc** to cancel; use the ✕ to clear a binding.
+2. Next to a gesture, click the action button:
+   - **Record Keyboard Shortcut…** then press the key combo you want (e.g. ⌘⇧4).
+     Press **Esc** to cancel.
+   - **Mouse Click ▸** a preset (e.g. **⌘ Left Click**, Right Click, Middle Click).
+     The click is synthesized at the current pointer location — so e.g. a
+     3-finger tap mapped to ⌘ Left Click opens whatever link the pointer is over.
+
+   Use the ✕ to clear a binding.
 3. The footer shows the last recognized gesture (green dot = a bound shortcut
    fired, grey = recognized but unbound) — handy for testing.
 4. The **Enabled** switch globally pauses/resumes remapping.
