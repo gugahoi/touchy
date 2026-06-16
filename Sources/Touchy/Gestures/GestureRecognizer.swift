@@ -9,19 +9,27 @@ private func rdbg(_ s: String) {
 /// Classifies raw multitouch frames into discrete gestures.
 ///
 /// State machine over a single touch sequence (fingers down → fingers up):
-/// - A sequence begins when ≥3 fingers are present and records a reference centroid.
-/// - While fingers are down, if the centroid travels past `swipeThreshold`, it emits
-///   a swipe in the dominant direction (once per sequence) and locks recognition.
-/// - When all fingers lift: if nothing was recognized and the sequence was short and
-///   nearly stationary, it emits a tap using the peak finger count seen.
-/// A `cooldown` after any emit prevents a single physical gesture firing repeatedly.
+/// - A sequence begins when ≥3 fingers are present.
+/// - Movement is accumulated frame-to-frame as a net centroid displacement, but
+///   only across frames where the finger count is unchanged and the per-frame
+///   step is small. This skips the centroid jump that happens when a finger lands
+///   or lifts (which would otherwise inflate movement and break tap/swipe alike),
+///   while real gesture motion always accumulates regardless of brief count
+///   flicker (e.g. a stray 4th finger during a 3-finger swipe).
+/// - Past `swipeThreshold` of net travel → swipe in the dominant direction (once).
+/// - On lift, if nothing was recognized and the sequence was short and nearly
+///   stationary → tap, using the peak finger count seen.
+/// A `cooldown` after any emit prevents one physical gesture firing repeatedly.
 final class GestureRecognizer {
-    /// Normalized centroid travel (fraction of pad) needed to call a swipe.
+    /// Net centroid travel (fraction of pad) needed to call a swipe.
     var swipeThreshold: Double = 0.12
-    /// Max centroid travel still considered a tap (forgiving of slight drift).
+    /// Max net travel still considered a tap (forgiving of slight drift).
     var tapMaxMovement: Double = 0.10
     /// Max duration (seconds) still considered a tap.
     var tapMaxDuration: Double = 0.4
+    /// Per-frame centroid step above this is treated as a finger-change
+    /// discontinuity and not accumulated as motion.
+    var jumpCap: Double = 0.08
     /// Quiet period (seconds) after an emit before another gesture can fire.
     /// Short enough that deliberate repeated taps register; long enough to debounce
     /// the finger-lift jitter of a single physical gesture.
@@ -33,11 +41,14 @@ final class GestureRecognizer {
 
     private var active = false
     private var recognized = false
-    private var startCentroid = Point(x: 0, y: 0)
     private var startTime: Double = 0
     private var peakFingers = 0
     private var lastEmitTime: Double = -1
-    private var maxDistance: Double = 0
+
+    private var lastCount = 0
+    private var lastCentroid = Point(x: 0, y: 0)
+    private var netDX = 0.0
+    private var netDY = 0.0
 
     /// Called once per multitouch frame.
     func ingest(fingers: UnsafePointer<Finger>?, count: Int, timestamp: Double) {
@@ -55,35 +66,31 @@ final class GestureRecognizer {
             return
         }
 
-        // A new finger landed: re-anchor measurement to this moment. Fingers land
-        // staggered, and the centroid jumps each time one touches down — measuring
-        // from a partial-contact start would inflate "movement" and wrongly reject
-        // taps. Re-baselining means we only ever measure the full-hand phase.
-        if count > peakFingers {
-            peakFingers = count
-            startCentroid = centroid
-            startTime = timestamp
-            maxDistance = 0
-            return
-        }
+        peakFingers = max(peakFingers, count)
 
-        // Only evaluate while the full finger set is down. While fingers lift one by
-        // one (count < peak), the centroid shifts toward the remaining fingers; that
-        // isn't real gesture movement, so ignore it.
-        guard count == peakFingers else { return }
+        // Accumulate motion only across continuous frames (same finger count, small
+        // step). Finger landings/liftings change the count and/or jump the centroid,
+        // and are deliberately excluded.
+        if count == lastCount {
+            let dx = centroid.x - lastCentroid.x
+            let dy = centroid.y - lastCentroid.y
+            if (dx * dx + dy * dy).squareRoot() <= jumpCap {
+                netDX += dx
+                netDY += dy
+            }
+        }
+        lastCount = count
+        lastCentroid = centroid
+
         guard !recognized, peakFingers >= 3, !inCooldown(timestamp) else { return }
 
-        let dx = centroid.x - startCentroid.x
-        let dy = centroid.y - startCentroid.y
-        let distance = (dx * dx + dy * dy).squareRoot()
-        maxDistance = max(maxDistance, distance)
-
+        let distance = (netDX * netDX + netDY * netDY).squareRoot()
         if distance >= swipeThreshold {
             let direction: SwipeDirection
-            if abs(dx) >= abs(dy) {
-                direction = dx > 0 ? .right : .left
+            if abs(netDX) >= abs(netDY) {
+                direction = netDX > 0 ? .right : .left
             } else {
-                direction = dy > 0 ? .up : .down
+                direction = netDY > 0 ? .up : .down
             }
             emit(.swipe(clampFingers(peakFingers), direction), at: timestamp)
             recognized = true
@@ -93,10 +100,12 @@ final class GestureRecognizer {
     private func beginSequence(centroid: Point, count: Int, timestamp: Double) {
         active = true
         recognized = false
-        startCentroid = centroid
         startTime = timestamp
         peakFingers = count
-        maxDistance = 0
+        lastCount = count
+        lastCentroid = centroid
+        netDX = 0
+        netDY = 0
         rdbg("seq begin: fingers=\(count)")
     }
 
@@ -107,12 +116,13 @@ final class GestureRecognizer {
             peakFingers = 0
         }
         let duration = timestamp - startTime
-        rdbg(String(format: "seq end: peakFingers=%d dur=%.2f maxDist=%.3f recognized=%@",
-                    peakFingers, duration, maxDistance, recognized ? "yes" : "no"))
+        let netDistance = (netDX * netDX + netDY * netDY).squareRoot()
+        rdbg(String(format: "seq end: peakFingers=%d dur=%.2f netDist=%.3f recognized=%@",
+                    peakFingers, duration, netDistance, recognized ? "yes" : "no"))
 
         guard !recognized, peakFingers >= 3, !inCooldown(timestamp) else { return }
 
-        if duration <= tapMaxDuration && maxDistance <= tapMaxMovement {
+        if duration <= tapMaxDuration && netDistance <= tapMaxMovement {
             emit(.tap(clampFingers(peakFingers)), at: timestamp)
         }
     }

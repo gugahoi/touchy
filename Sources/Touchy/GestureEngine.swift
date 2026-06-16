@@ -24,17 +24,19 @@ final class GestureEngine: ObservableObject {
         reader.start()
     }
 
-    /// Runs on the multitouch callback thread.
+    /// Runs on the multitouch callback thread. Only `CGEvent` posting is safe here;
+    /// `KeyCombo.display` (Text Input Source APIs) and `@Published` updates must run
+    /// on the main thread, so everything else is dispatched.
     private func handle(_ gesture: Gesture) {
         let combo = store.activeCombo(forGestureID: gesture.id)
-        if ProcessInfo.processInfo.environment["TOUCHY_DEBUG"] != nil {
-            FileHandle.standardError.write(
-                Data("[touchy] recognized \(gesture.displayName) -> \(combo?.display ?? "(unbound)")\n".utf8))
-        }
         if let combo {
             KeyEmitter.post(combo)
         }
         DispatchQueue.main.async {
+            if ProcessInfo.processInfo.environment["TOUCHY_DEBUG"] != nil {
+                FileHandle.standardError.write(
+                    Data("[touchy] recognized \(gesture.displayName) -> \(combo?.display ?? "(unbound)")\n".utf8))
+            }
             self.lastGesture = gesture
             self.lastGestureFired = (combo != nil)
             self.lastGestureAt = Date()
