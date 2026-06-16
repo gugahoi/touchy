@@ -1,0 +1,5 @@
+.build/
+.swiftpm/
+Touchy.app/
+*.xcodeproj
+.DS_Store
