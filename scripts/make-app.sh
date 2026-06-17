@@ -12,20 +12,41 @@ CONFIG="${1:-release}"
 APP="${ROOT}/Touchy.app"
 BIN_NAME="Touchy"
 
-echo "[1/4] Building (${CONFIG})"
+echo "[1/5] Building (${CONFIG})"
 swift build -c "$CONFIG" --package-path "$ROOT" >/dev/null
 BIN_PATH="$(swift build -c "$CONFIG" --package-path "$ROOT" --show-bin-path)/${BIN_NAME}"
 
-echo "[2/4] Assembling ${APP}"
+echo "[2/5] Assembling ${APP}"
 rm -rf "$APP"
 mkdir -p "${APP}/Contents/MacOS" "${APP}/Contents/Resources"
 cp "$BIN_PATH" "${APP}/Contents/MacOS/${BIN_NAME}"
 cp "${ROOT}/Resources/Info.plist" "${APP}/Contents/Info.plist"
 
-echo "[3/4] Ad-hoc codesigning"
+echo "[3/5] Building app icon"
+ICON_SRC="${ROOT}/Resources/AppIcon.png"
+if [[ -f "$ICON_SRC" ]]; then
+    ICONSET="$(mktemp -d)/Touchy.iconset"
+    mkdir -p "$ICONSET"
+    # name:px pairs for the standard macOS iconset
+    for spec in \
+        icon_16x16:16 icon_16x16@2x:32 \
+        icon_32x32:32 icon_32x32@2x:64 \
+        icon_128x128:128 icon_128x128@2x:256 \
+        icon_256x256:256 icon_256x256@2x:512 \
+        icon_512x512:512 icon_512x512@2x:1024 ; do
+        name="${spec%:*}"; px="${spec#*:}"
+        sips -z "$px" "$px" "$ICON_SRC" --out "${ICONSET}/${name}.png" >/dev/null
+    done
+    iconutil -c icns "$ICONSET" -o "${APP}/Contents/Resources/Touchy.icns"
+    rm -rf "$(dirname "$ICONSET")"
+else
+    echo "  (no Resources/AppIcon.png — skipping icon)"
+fi
+
+echo "[4/5] Ad-hoc codesigning"
 codesign --force --deep --sign - "$APP"
 
-echo "[4/4] Verifying signature"
+echo "[5/5] Verifying signature"
 codesign --verify --verbose "$APP" 2>&1 | sed 's/^/  /'
 
 echo "Built ${APP}"

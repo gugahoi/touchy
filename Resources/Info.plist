@@ -10,6 +10,8 @@
     <string>com.gugahoi.touchy</string>
     <key>CFBundleExecutable</key>
     <string>Touchy</string>
+    <key>CFBundleIconFile</key>
+    <string>Touchy</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
