@@ -45,8 +45,28 @@ else
     echo "  (no Resources/AppIcon.png — skipping icon)"
 fi
 
-echo "[4/5] Ad-hoc codesigning"
-codesign --force --deep --sign - "$APP"
+echo "[4/5] Codesigning"
+# Pick a STABLE signing identity so the Accessibility (TCC) grant survives
+# rebuilds. Priority: explicit override -> dedicated self-signed -> any Apple
+# Development cert -> ad-hoc (which loses the grant every build).
+IDS="$(security find-identity -v -p codesigning 2>/dev/null || true)"
+if [[ -n "${TOUCHY_SIGN_ID:-}" ]]; then
+    SIGN_ID="$TOUCHY_SIGN_ID"
+elif grep -q "Touchy Self-Signed" <<<"$IDS"; then
+    SIGN_ID="Touchy Self-Signed"
+elif grep -q "Apple Development:" <<<"$IDS"; then
+    SIGN_ID="$(awk -F'"' '/Apple Development:/ {print $2; exit}' <<<"$IDS")"
+else
+    SIGN_ID="-"
+fi
+
+if [[ "$SIGN_ID" == "-" ]]; then
+    codesign --force --deep --sign - "$APP"
+    echo "  ad-hoc signed — run ./scripts/setup-signing.sh once so the grant survives rebuilds"
+else
+    codesign --force --deep --sign "$SIGN_ID" "$APP"
+    echo "  signed with '${SIGN_ID}' (stable identity; Accessibility grant survives rebuilds)"
+fi
 
 echo "[5/5] Verifying signature"
 codesign --verify --verbose "$APP" 2>&1 | sed 's/^/  /'
