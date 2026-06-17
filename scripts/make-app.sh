@@ -21,6 +21,8 @@ rm -rf "$APP"
 mkdir -p "${APP}/Contents/MacOS" "${APP}/Contents/Resources"
 cp "$BIN_PATH" "${APP}/Contents/MacOS/${BIN_NAME}"
 cp "${ROOT}/Resources/Info.plist" "${APP}/Contents/Info.plist"
+[[ -f "${ROOT}/Resources/MenuBarIcon.png" ]] && \
+    cp "${ROOT}/Resources/MenuBarIcon.png" "${APP}/Contents/Resources/MenuBarIcon.png"
 
 echo "[3/5] Building app icon"
 ICON_SRC="${ROOT}/Resources/AppIcon.png"

@@ -38,9 +38,6 @@ struct ContentView: View {
 
     private var header: some View {
         HStack {
-            Image(systemName: "hand.point.up.left.fill")
-                .font(.title2)
-                .foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 1) {
                 Text("Touchy").font(.headline)
                 Text("Map trackpad gestures to keyboard shortcuts")
