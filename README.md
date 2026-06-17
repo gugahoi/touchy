@@ -39,7 +39,8 @@ signature.
 2. Next to a gesture, click the action button:
    - **Record Keyboard Shortcut…** then press the key combo you want (e.g. ⌘⇧4).
      Press **Esc** to cancel.
-   - **Mouse Click ▸** a preset (e.g. **⌘ Left Click**, Right Click, Middle Click).
+   - **Mouse Click…** opens an editor: choose the button (Left/Right/Middle),
+     any combination of ⌘/⌥/⌃/⇧ modifiers, and single vs. **double-click**.
      The click is synthesized at the current pointer location — so e.g. a
      3-finger tap mapped to ⌘ Left Click opens whatever link the pointer is over.
 

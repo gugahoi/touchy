@@ -144,6 +144,9 @@ private struct GestureRow: View {
     @ObservedObject var store: BindingStore
     @ObservedObject var recorder: KeyRecorder
 
+    @State private var showClickEditor = false
+    @State private var draftClick = MouseClick(button: .left)
+
     private var isRecording: Bool { recorder.recordingID == gesture.id }
     private var action: GestureAction? { store.action(for: gesture) }
 
@@ -182,17 +185,6 @@ private struct GestureRow: View {
         .foregroundStyle(.secondary)
     }
 
-    // Common click presets offered in the menu.
-    private static let clickPresets: [MouseClick] = [
-        MouseClick(button: .left),
-        MouseClick(button: .left, command: true),
-        MouseClick(button: .left, option: true),
-        MouseClick(button: .left, control: true),
-        MouseClick(button: .left, shift: true),
-        MouseClick(button: .right),
-        MouseClick(button: .middle),
-    ]
-
     @ViewBuilder private var actionControl: some View {
         if isRecording {
             Button {
@@ -212,12 +204,13 @@ private struct GestureRow: View {
                         store.setAction(.key(captured), for: gesture)
                     }
                 }
-                Menu("Mouse Click") {
-                    ForEach(Self.clickPresets, id: \.self) { preset in
-                        Button(preset.display) {
-                            store.setAction(.click(preset), for: gesture)
-                        }
+                Button("Mouse Click…") {
+                    if case .click(let existing)? = action {
+                        draftClick = existing
+                    } else {
+                        draftClick = MouseClick(button: .left)
                     }
+                    showClickEditor = true
                 }
             } label: {
                 Text(action?.display ?? "Set action")
@@ -227,6 +220,61 @@ private struct GestureRow: View {
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
+            .popover(isPresented: $showClickEditor, arrowEdge: .bottom) {
+                MouseClickEditor(click: $draftClick) {
+                    store.setAction(.click(draftClick), for: gesture)
+                    showClickEditor = false
+                } onCancel: {
+                    showClickEditor = false
+                }
+            }
         }
+    }
+}
+
+/// Popover editor for a mouse-click action: button, any modifier combination,
+/// and single vs. double click.
+private struct MouseClickEditor: View {
+    @Binding var click: MouseClick
+    var onSet: () -> Void
+    var onCancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Mouse Click").font(.headline)
+
+            Picker("Button", selection: $click.button) {
+                ForEach(MouseButton.allCases, id: \.self) { button in
+                    Text(button.shortLabel).tag(button)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
+            VStack(alignment: .leading, spacing: 4) {
+                Toggle("⌘ Command", isOn: $click.command)
+                Toggle("⌥ Option", isOn: $click.option)
+                Toggle("⌃ Control", isOn: $click.control)
+                Toggle("⇧ Shift", isOn: $click.shift)
+                Toggle("Double-click", isOn: Binding(
+                    get: { click.clickCount >= 2 },
+                    set: { click.clickCount = $0 ? 2 : 1 }
+                ))
+            }
+            .toggleStyle(.checkbox)
+
+            Divider()
+
+            HStack {
+                Text(click.display)
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Cancel", action: onCancel)
+                Button("Set", action: onSet).keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(16)
+        .frame(width: 260)
     }
 }

@@ -27,16 +27,25 @@ enum MouseButton: String, Codable, Hashable, CaseIterable {
         case .middle: return "Middle Click"
         }
     }
+
+    var shortLabel: String {
+        switch self {
+        case .left: return "Left"
+        case .right: return "Right"
+        case .middle: return "Middle"
+        }
+    }
 }
 
 /// A synthesized mouse click (with optional modifiers) performed at the current
-/// pointer location.
-struct MouseClick: Codable, Hashable {
+/// pointer location. `clickCount` is 1 for a single click, 2 for a double-click.
+struct MouseClick: Hashable {
     var button: MouseButton
     var command: Bool = false
     var option: Bool = false
     var control: Bool = false
     var shift: Bool = false
+    var clickCount: Int = 1
 
     var cgFlags: CGEventFlags {
         var f: CGEventFlags = []
@@ -54,7 +63,26 @@ struct MouseClick: Codable, Hashable {
         if shift { s += "⇧" }
         if command { s += "⌘" }
         if !s.isEmpty { s += " " }
+        if clickCount >= 2 { s += "Double " }
         return s + button.label
+    }
+}
+
+extension MouseClick: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case button, command, option, control, shift, clickCount
+    }
+
+    // Custom decode so older entries saved without `clickCount` still load
+    // (default 1) instead of throwing — which would silently drop the binding.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        button = try c.decode(MouseButton.self, forKey: .button)
+        command = try c.decodeIfPresent(Bool.self, forKey: .command) ?? false
+        option = try c.decodeIfPresent(Bool.self, forKey: .option) ?? false
+        control = try c.decodeIfPresent(Bool.self, forKey: .control) ?? false
+        shift = try c.decodeIfPresent(Bool.self, forKey: .shift) ?? false
+        clickCount = try c.decodeIfPresent(Int.self, forKey: .clickCount) ?? 1
     }
 }
 

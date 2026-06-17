@@ -29,25 +29,32 @@ enum KeyEmitter {
         up.post(tap: .cghidEventTap)
     }
 
-    /// Posts a mouse down+up (with modifier flags) at the current pointer location.
+    /// Posts a mouse click (with modifier flags) at the current pointer location.
+    /// For a double-click, posts two down/up pairs with increasing click state so
+    /// the receiving app recognizes them as a genuine double-click.
     static func post(_ click: MouseClick) {
         let source = CGEventSource(stateID: .combinedSessionState)
         // Current cursor position in CG global coords (top-left origin). Staying in
         // CGEvent avoids the AppKit coordinate flip.
         let location = CGEvent(source: source)?.location ?? .zero
         let types = click.button.eventTypes
+        let count = max(1, click.clickCount)
 
-        guard
-            let down = CGEvent(mouseEventSource: source, mouseType: types.down,
-                               mouseCursorPosition: location, mouseButton: click.button.cgButton),
-            let up = CGEvent(mouseEventSource: source, mouseType: types.up,
-                             mouseCursorPosition: location, mouseButton: click.button.cgButton)
-        else { return }
+        for clickState in 1...count {
+            guard
+                let down = CGEvent(mouseEventSource: source, mouseType: types.down,
+                                   mouseCursorPosition: location, mouseButton: click.button.cgButton),
+                let up = CGEvent(mouseEventSource: source, mouseType: types.up,
+                                 mouseCursorPosition: location, mouseButton: click.button.cgButton)
+            else { return }
 
-        down.flags = click.cgFlags
-        up.flags = click.cgFlags
+            down.flags = click.cgFlags
+            up.flags = click.cgFlags
+            down.setIntegerValueField(.mouseEventClickState, value: Int64(clickState))
+            up.setIntegerValueField(.mouseEventClickState, value: Int64(clickState))
 
-        down.post(tap: .cghidEventTap)
-        up.post(tap: .cghidEventTap)
+            down.post(tap: .cghidEventTap)
+            up.post(tap: .cghidEventTap)
+        }
     }
 }
