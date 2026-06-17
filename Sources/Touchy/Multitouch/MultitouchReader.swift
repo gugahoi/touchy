@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import CMultitouch
 
 private let debugEnabled = ProcessInfo.processInfo.environment["TOUCHY_DEBUG"] != nil
@@ -17,12 +18,16 @@ final class MultitouchReader {
     let recognizer = GestureRecognizer()
     private var devices: [MTDeviceRef] = []
     private(set) var isRunning = false
+    private var wakeObservers: [NSObjectProtocol] = []
 
     private init() {}
 
     func start() {
+        installWakeObserversIfNeeded()
         guard !isRunning else { return }
 
+        // Always re-enumerate so a restart picks up fresh device handles.
+        devices = []
         // Prefer the full device list (external trackpads / multiple devices);
         // fall back to the default device.
         if let list = MTDeviceCreateList()?.takeRetainedValue() as? [MTDeviceRef] {
@@ -52,6 +57,25 @@ final class MultitouchReader {
             MTDeviceStop(device)
         }
         isRunning = false
+    }
+
+    /// MultitouchSupport stops delivering frames after the system or display
+    /// sleeps and never resumes on its own, so re-initialize the devices on wake.
+    func restart() {
+        dbg("restart: re-initialising multitouch (wake)")
+        stop()
+        start()
+    }
+
+    private func installWakeObserversIfNeeded() {
+        guard wakeObservers.isEmpty else { return }
+        let nc = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification] {
+            let token = nc.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                self?.restart()
+            }
+            wakeObservers.append(token)
+        }
     }
 
     private var frameCount = 0
