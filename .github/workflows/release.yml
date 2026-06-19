@@ -36,7 +36,7 @@ jobs:
         id: tap-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.HOMEBREW_TAP_APP_ID }}
+          client-id: ${{ vars.HOMEBREW_TAP_CLIENT_ID }}
           private-key: ${{ secrets.HOMEBREW_TAP_APP_PRIVATE_KEY }}
           owner: gugahoi
           repositories: homebrew-tap
