@@ -31,9 +31,8 @@ cask "touchy" do
 
   app "Touchy.app"
 
-  caveats <<~EOS
-    Touchy is not notarized. If macOS blocks the app, remove the quarantine bit:
-      xattr -dr com.apple.quarantine /Applications/Touchy.app
-  EOS
+  postflight do
+    system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "/Applications/Touchy.app"] if OS.mac?
+  end
 end
 CASK
