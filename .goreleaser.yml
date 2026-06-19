@@ -2,29 +2,16 @@ version: 2
 
 before:
   hooks:
-    - go mod tidy
+    - ./scripts/make-app.sh release
 
-builds:
-  - id: touchy
-    binary: Touchy
-    main: .
-    env:
-      - CGO_ENABLED=1
-    goos:
-      - darwin
-    goarch:
-      - arm64
-    hooks:
-      pre: ./scripts/make-app.sh release
-      post: cp -r Touchy.app "${GORELEASER_BUILD_DIR}/Touchy.app"
+builds: []
 
 archives:
   - id: touchy-app
-    builds:
-      - touchy
     name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}'
     format: zip
     files:
+      - Touchy.app/**
       - LICENSE*
       - README*
     wrap_in_directory: true
