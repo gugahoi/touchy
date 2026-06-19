@@ -17,7 +17,7 @@ permissions:
   contents: write
 
 jobs:
-  build-release:
+  goreleaser:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,44 +27,25 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Show toolchain
-        run: swift --version && xcodebuild -version
-
-      - name: Build & assemble app
-        # No Apple/self-signed identity on CI, so make-app.sh ad-hoc signs.
-        run: ./scripts/make-app.sh release
-
-      - name: Resolve version & package
-        id: pkg
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.tag }}"
-          else
-            VERSION="${GITHUB_REF_NAME}"
-          fi
-          ZIP="Touchy-${VERSION}.zip"
-          # ditto preserves the .app bundle structure (symlinks, metadata, signature).
-          ditto -c -k --keepParent "Touchy.app" "$ZIP"
-          shasum -a 256 "$ZIP" > "${ZIP}.sha256"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
-
-      - name: Create release and upload binary
-        uses: softprops/action-gh-release@v2
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          tag_name: ${{ steps.pkg.outputs.version }}
-          name: Touchy ${{ steps.pkg.outputs.version }}
-          generate_release_notes: true
-          files: |
-            ${{ steps.pkg.outputs.zip }}
-            ${{ steps.pkg.outputs.zip }}.sha256
-          body: |
-            ## Touchy ${{ steps.pkg.outputs.version }}
+          go-version: '1.22'
 
-            Trackpad multitouch-gesture remapper (menu-bar app).
+      - name: Generate Homebrew tap token
+        id: tap-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.HOMEBREW_TAP_APP_ID }}
+          private-key: ${{ secrets.HOMEBREW_TAP_APP_PRIVATE_KEY }}
+          owner: gugahoi
+          repositories: homebrew-tap
 
-            **Install**
-            1. Download and unzip `Touchy-${{ steps.pkg.outputs.version }}.zip`.
-            2. This build is **ad-hoc signed (not notarized)** — the first launch,
-               right-click `Touchy.app` ▸ **Open**, then confirm.
-            3. Grant **Accessibility** when prompted (needed to send keystrokes).
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ steps.tap-token.outputs.token }}
