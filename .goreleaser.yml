@@ -9,7 +9,7 @@ builds: []
 archives:
   - id: touchy-app
     name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}'
-    format: zip
+    formats: ['zip']
     files:
       - Touchy.app/**
       - LICENSE*
@@ -24,16 +24,12 @@ release:
   prerelease: auto
   mode: replace
 
-homebrew_tap:
-  - owner: gugahoi
-    name: homebrew-tap
-    token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    commit_author:
-      name: goreleaserbot
-      email: goreleaser@carlosbecker.com
-    directory: Formula
-    generate_metadata: true
-    upload_tarball: true
+homebrew_casks:
+  - repository:
+      owner: gugahoi
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Casks
 
 checksum:
   name_template: 'checksums.txt'
