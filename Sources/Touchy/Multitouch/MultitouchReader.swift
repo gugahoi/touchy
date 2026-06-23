@@ -18,7 +18,10 @@ final class MultitouchReader {
     let recognizer = GestureRecognizer()
     private var devices: [MTDeviceRef] = []
     private(set) var isRunning = false
-    private var wakeObservers: [NSObjectProtocol] = []
+    private var sleepWakeObservers: [NSObjectProtocol] = []
+    private var retryCount = 0
+    private let maxRetries = 5
+    private let retryDelaySeconds = 0.5
 
     private init() {}
 
@@ -67,15 +70,61 @@ final class MultitouchReader {
         start()
     }
 
-    private func installWakeObserversIfNeeded() {
-        guard wakeObservers.isEmpty else { return }
+    /// Restart with verification and retry on wake, handling HID stack initialization race.
+    /// If devices don't report running after start(), schedule a retry with bounded attempts.
+    private func restartWithRetry() {
+        dbg("restartWithRetry: stopping and restarting multitouch")
+        stop()
+        start()
+
+        // Verify that at least one device is actually running; if not, retry.
+        if !devices.isEmpty && !devices.contains(where: { MTDeviceIsRunning($0) }) {
+            retryCount += 1
+            if retryCount <= maxRetries {
+                dbg("restartWithRetry: attempt \(retryCount)/\(maxRetries) - no device running, retrying in \(retryDelaySeconds)s")
+                DispatchQueue.main.asyncAfter(deadline: .now() + retryDelaySeconds) { [weak self] in
+                    self?.restartWithRetry()
+                }
+            } else {
+                dbg("restartWithRetry: gave up after \(maxRetries) attempts - multitouch may not recover")
+                retryCount = 0
+            }
+        } else {
+            // At least one device is running or no devices found at all; success or handled by start().
+            retryCount = 0
+            if !devices.isEmpty {
+                dbg("restartWithRetry: devices confirmed running")
+            }
+        }
+    }
+
+    /// Install observers for both sleep and wake events.
+    /// On sleep, stop cleanly to release devices while handles are valid.
+    /// On wake, restart with verification and retry to handle HID stack timing races.
+    private func installSleepWakeObserversIfNeeded() {
+        guard sleepWakeObservers.isEmpty else { return }
         let nc = NSWorkspace.shared.notificationCenter
+
+        // Stop on sleep to release devices cleanly.
+        for name in [NSWorkspace.willSleepNotification, NSWorkspace.screensDidSleepNotification] {
+            let token = nc.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                self?.stop()
+            }
+            sleepWakeObservers.append(token)
+        }
+
+        // Restart with verification on wake.
         for name in [NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification] {
             let token = nc.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                self?.restart()
+                self?.restartWithRetry()
             }
-            wakeObservers.append(token)
+            sleepWakeObservers.append(token)
         }
+    }
+
+    // Backward-compatible alias for the renamed method.
+    private func installWakeObserversIfNeeded() {
+        installSleepWakeObserversIfNeeded()
     }
 
     private var frameCount = 0
