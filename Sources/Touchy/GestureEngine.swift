@@ -10,11 +10,14 @@ final class GestureEngine: ObservableObject {
     @Published var lastGesture: Gesture?
     @Published var lastGestureFired = false
     @Published var lastGestureAt: Date?
+    /// Whether Accessibility permission is granted (updated on each gesture).
+    @Published var accessibilityTrusted: Bool
 
     private let reader = MultitouchReader.shared
     private let store = BindingStore.shared
 
     private init() {
+        accessibilityTrusted = Permissions.hasAccessibility
         reader.recognizer.onGesture = { [weak self] gesture in
             self?.handle(gesture)
         }
@@ -29,7 +32,9 @@ final class GestureEngine: ObservableObject {
     /// on the main thread, so everything else is dispatched.
     private func handle(_ gesture: Gesture) {
         let action = store.activeAction(forGestureID: gesture.id)
-        if let action {
+        // Re-check Accessibility trust at emit time.
+        let trusted = Permissions.hasAccessibility
+        if let action, trusted {
             KeyEmitter.perform(action)
         }
         DispatchQueue.main.async {
@@ -38,7 +43,9 @@ final class GestureEngine: ObservableObject {
                     Data("[touchy] recognized \(gesture.displayName) -> \(action?.display ?? "(unbound)")\n".utf8))
             }
             self.lastGesture = gesture
-            self.lastGestureFired = (action != nil)
+            // Only mark as fired if an action exists AND Accessibility is trusted.
+            self.lastGestureFired = (action != nil) && trusted
+            self.accessibilityTrusted = trusted
             self.lastGestureAt = Date()
         }
     }
