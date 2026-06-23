@@ -116,7 +116,27 @@ struct ContentView: View {
     }
 
     @ViewBuilder private var lastGestureLabel: some View {
-        if let last = engine.lastGesture {
+        if !engine.accessibilityTrusted, let last = engine.lastGesture {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 7, height: 7)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Last: \(last.displayName)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Accessibility not granted — keystrokes can't be sent")
+                        .font(.caption2).foregroundStyle(.red)
+                }
+                Spacer()
+                Button("Grant") {
+                    Permissions.openAccessibilitySettings()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+            .id(engine.lastGestureAt)
+        } else if let last = engine.lastGesture {
             HStack(spacing: 6) {
                 Circle()
                     .fill(engine.lastGestureFired ? Color.green : Color.secondary)
