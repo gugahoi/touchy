@@ -26,7 +26,7 @@ final class MultitouchReader {
     private init() {}
 
     func start() {
-        installWakeObserversIfNeeded()
+        installSleepWakeObserversIfNeeded()
         guard !isRunning else { return }
 
         // Always re-enumerate so a restart picks up fresh device handles.
@@ -120,11 +120,6 @@ final class MultitouchReader {
             }
             sleepWakeObservers.append(token)
         }
-    }
-
-    // Backward-compatible alias for the renamed method.
-    private func installWakeObserversIfNeeded() {
-        installSleepWakeObserversIfNeeded()
     }
 
     private var frameCount = 0
