@@ -20,7 +20,10 @@ final class MultitouchReader {
     private(set) var isRunning = false
     private var sleepWakeObservers: [NSObjectProtocol] = []
     private var retryCount = 0
-    private let maxRetries = 5
+    // ponytail: 20 × 0.5s = 10s window for the HID stack to come back on wake.
+    // If devices still don't appear, switch to backoff or listen for a device-
+    // added notification instead of polling.
+    private let maxRetries = 20
     private let retryDelaySeconds = 0.5
 
     private init() {}
@@ -44,6 +47,10 @@ final class MultitouchReader {
             dbg("start: NO DEVICES FOUND")
             return
         }
+
+        // Fresh device session: the framework's timestamp restarts here, so drop
+        // any cooldown/sequence state carried over from the previous session.
+        recognizer.reset()
 
         for device in devices {
             MTRegisterContactFrameCallback(device, mtFrameCallback)
@@ -77,8 +84,13 @@ final class MultitouchReader {
         stop()
         start()
 
-        // Verify that at least one device is actually running; if not, retry.
-        if !devices.isEmpty && !devices.contains(where: { MTDeviceIsRunning($0) }) {
+        // Success is "at least one device actually running". Anything else —
+        // including an empty device list (HID stack not ready yet on wake) —
+        // must retry; that empty case is the most common wake-time failure.
+        if devices.contains(where: { MTDeviceIsRunning($0) }) {
+            retryCount = 0
+            dbg("restartWithRetry: devices confirmed running")
+        } else {
             retryCount += 1
             if retryCount <= maxRetries {
                 dbg("restartWithRetry: attempt \(retryCount)/\(maxRetries) - no device running, retrying in \(retryDelaySeconds)s")
@@ -88,12 +100,6 @@ final class MultitouchReader {
             } else {
                 dbg("restartWithRetry: gave up after \(maxRetries) attempts - multitouch may not recover")
                 retryCount = 0
-            }
-        } else {
-            // At least one device is running or no devices found at all; success or handled by start().
-            retryCount = 0
-            if !devices.isEmpty {
-                dbg("restartWithRetry: devices confirmed running")
             }
         }
     }
