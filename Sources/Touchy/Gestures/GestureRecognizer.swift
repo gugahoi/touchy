@@ -37,6 +37,20 @@ final class GestureRecognizer {
 
     var onGesture: ((Gesture) -> Void)?
 
+    /// Clears all cross-sequence state. Must be called when the multitouch device
+    /// session restarts (sleep/wake): the framework's timestamp is session-relative
+    /// and resets low on restart, so a stale `lastEmitTime` from the previous
+    /// session would make `inCooldown` return true forever and wedge recognition.
+    func reset() {
+        active = false
+        recognized = false
+        peakFingers = 0
+        netDX = 0
+        netDY = 0
+        lastCount = 0
+        lastEmitTime = -1
+    }
+
     private struct Point { var x: Double; var y: Double }
 
     private var active = false
