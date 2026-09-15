@@ -31,8 +31,8 @@ cask "touchy" do
 
   app "Touchy.app"
 
-  postflight do
-    system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "/Applications/Touchy.app"] if OS.mac?
+  postflight_steps do
+    run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "/Applications/Touchy.app"], must_succeed: false
   end
 end
 CASK
