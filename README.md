@@ -71,6 +71,41 @@ Switch to the **Settings** tab at the top of the window:
 
   **Restore Defaults** resets the tuning (not your bindings).
 
+## Configuration files
+
+Touchy keeps its configuration in two JSON files:
+
+- `bindings.json` — gesture → action bindings and the Enabled switch
+- `settings.json` — recognition tuning from the Settings tab
+
+Each file is read from the **first** of these locations where it exists:
+
+1. `~/.config/touchy/`
+2. `~/Library/Application Support/Touchy/`
+
+Changes made in the app are saved back to that same file. A file that doesn't
+exist yet is created in `~/.config/touchy/` if that folder exists, otherwise in
+Application Support. The Settings tab shows which location each file is using.
+
+To keep your configuration in a dotfiles repo:
+
+```sh
+mkdir -p ~/.config/touchy
+cp ~/Library/Application\ Support/Touchy/*.json ~/.config/touchy/
+```
+
+then restart Touchy. **[`examples/`](examples/)** has sample files and a full
+reference for both formats: every field, gesture id and common key code. Notes:
+
+- Files are written pretty-printed with sorted keys, so they diff cleanly.
+- Symlinks are followed: if `~/.config/touchy` (or a file in it) is a symlink
+  into your repo, Touchy writes through it rather than replacing the link.
+- Touchy reads the files at launch; restart it after editing them by hand
+  (e.g. after a `git pull`).
+- Missing fields fall back to defaults. If a file can't be parsed at all, Touchy
+  saves a copy as `<name>.json.bak` next to it and starts from defaults, so a
+  typo never silently destroys your configuration.
+
 ## ⚠️ Gesture conflicts with macOS
 
 macOS already owns some multi-finger gestures by default (Mission Control, switch
@@ -86,8 +121,7 @@ spaces, App Exposé, look-up). Those are marked **⚠︎** in the UI. If you bin
   a private framework and posts global events).
 - Rebuilding changes the binary, so macOS may ask you to re-grant Accessibility
   after a fresh build.
-- Bindings persist to `~/Library/Application Support/Touchy/bindings.json` and
-  recognition tuning to `settings.json` in the same folder.
+- Configuration lives in two JSON files — see [Configuration files](#configuration-files).
 - Set `TOUCHY_DEBUG=1` when launching the binary directly to log recognized
   gestures to stderr.
 ```sh

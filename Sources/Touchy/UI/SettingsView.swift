@@ -69,8 +69,53 @@ struct SettingsView: View {
                     .disabled(settings.recognizer == RecognizerSettings())
                 }
             }
+
+            Section {
+                ConfigFileRow(name: ConfigFiles.bindings)
+                ConfigFileRow(name: ConfigFiles.settings)
+            } header: {
+                Text("Configuration Files")
+            } footer: {
+                Text("Touchy reads each file from ~/.config/touchy first, then Application Support, and saves changes back to the same file. Edits made outside the app apply after restarting Touchy.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .formStyle(.grouped)
+    }
+}
+
+/// Shows where a config file is read from / saved to, with a Finder shortcut.
+private struct ConfigFileRow: View {
+    let name: String
+
+    var body: some View {
+        let url = ConfigFiles.standard.url(for: name)
+        let exists = FileManager.default.fileExists(atPath: url.path)
+        let dirExists = FileManager.default.fileExists(atPath: url.deletingLastPathComponent().path)
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                Text((url.deletingLastPathComponent().path as NSString).abbreviatingWithTildeInPath
+                     + (exists ? "" : "  (not created yet)"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+            Spacer()
+            Button("Show in Finder") {
+                if exists {
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                } else {
+                    NSWorkspace.shared.open(url.deletingLastPathComponent())
+                }
+            }
+            .controlSize(.small)
+            .disabled(!exists && !dirExists)
+        }
     }
 }
 

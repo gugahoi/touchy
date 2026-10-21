@@ -88,3 +88,21 @@ struct KeyCombo: Codable, Hashable {
         return String(utf16CodeUnits: chars, count: length).uppercased()
     }
 }
+
+extension KeyCombo {
+    private enum CodingKeys: String, CodingKey {
+        case keyCode, command, option, control, shift
+    }
+
+    // Custom decode so hand-written entries (e.g. in ~/.config/touchy) may omit
+    // modifiers that are off. The synthesized decoder would require every key and
+    // throw — failing the whole bindings file, not just this entry.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        keyCode = try c.decode(UInt16.self, forKey: .keyCode)
+        command = try c.decodeIfPresent(Bool.self, forKey: .command) ?? false
+        option = try c.decodeIfPresent(Bool.self, forKey: .option) ?? false
+        control = try c.decodeIfPresent(Bool.self, forKey: .control) ?? false
+        shift = try c.decodeIfPresent(Bool.self, forKey: .shift) ?? false
+    }
+}

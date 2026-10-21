@@ -1,0 +1,98 @@
+{
+  "bindings" : {
+    "swipe-3-down" : {
+      "key" : {
+        "command" : true,
+        "control" : false,
+        "keyCode" : 33,
+        "option" : false,
+        "shift" : true
+      },
+      "type" : "key"
+    },
+    "swipe-3-up" : {
+      "key" : {
+        "command" : true,
+        "control" : false,
+        "keyCode" : 30,
+        "option" : false,
+        "shift" : true
+      },
+      "type" : "key"
+    },
+    "swipe-5-down" : {
+      "key" : {
+        "command" : true,
+        "control" : false,
+        "keyCode" : 13,
+        "option" : false,
+        "shift" : false
+      },
+      "type" : "key"
+    },
+    "swipe-5-left" : {
+      "key" : {
+        "command" : true,
+        "control" : false,
+        "keyCode" : 33,
+        "option" : false,
+        "shift" : false
+      },
+      "type" : "key"
+    },
+    "swipe-5-right" : {
+      "key" : {
+        "command" : true,
+        "control" : false,
+        "keyCode" : 30,
+        "option" : false,
+        "shift" : false
+      },
+      "type" : "key"
+    },
+    "swipe-5-up" : {
+      "key" : {
+        "command" : true,
+        "control" : false,
+        "keyCode" : 17,
+        "option" : false,
+        "shift" : true
+      },
+      "type" : "key"
+    },
+    "tap-3" : {
+      "click" : {
+        "button" : "left",
+        "clickCount" : 1,
+        "command" : true,
+        "control" : false,
+        "option" : false,
+        "shift" : false
+      },
+      "type" : "click"
+    },
+    "tap-4" : {
+      "click" : {
+        "button" : "middle",
+        "clickCount" : 1,
+        "command" : false,
+        "control" : false,
+        "option" : false,
+        "shift" : false
+      },
+      "type" : "click"
+    },
+    "tap-5" : {
+      "click" : {
+        "button" : "left",
+        "clickCount" : 2,
+        "command" : false,
+        "control" : false,
+        "option" : false,
+        "shift" : false
+      },
+      "type" : "click"
+    }
+  },
+  "enabled" : true
+}

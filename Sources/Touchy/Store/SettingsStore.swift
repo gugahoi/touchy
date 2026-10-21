@@ -1,10 +1,11 @@
 import Foundation
 import Combine
 
-/// App settings (currently the recognizer tuning), persisted as JSON in
-/// Application Support next to — but separate from — `bindings.json`, so resetting
-/// one never touches the other. Main-thread only: `GestureEngine` forwards changes
-/// to the recognizer, which keeps its own lock-protected copy for the callback thread.
+/// App settings (currently the recognizer tuning), persisted as `settings.json`
+/// next to — but separate from — `bindings.json` (see `ConfigFiles` for where they
+/// live), so resetting one never touches the other. Main-thread only:
+/// `GestureEngine` forwards changes to the recognizer, which keeps its own
+/// lock-protected copy for the callback thread.
 final class SettingsStore: ObservableObject {
     static let shared = SettingsStore()
 
@@ -24,31 +25,22 @@ final class SettingsStore: ObservableObject {
 
     @Published var recognizer: RecognizerSettings
 
-    private let fileURL = AppSupport.fileURL("settings.json")
+    private let files = ConfigFiles.standard
     private var saveSubscription: AnyCancellable?
 
     private init() {
-        if let data = try? Data(contentsOf: fileURL),
-           let decoded = try? JSONDecoder().decode(Persisted.self, from: data) {
-            recognizer = decoded.recognizer
-        } else {
-            recognizer = RecognizerSettings()
-        }
+        recognizer = files.load(Persisted.self, from: ConfigFiles.settings)?.recognizer
+            ?? RecognizerSettings()
         if ProcessInfo.processInfo.environment["TOUCHY_DEBUG"] != nil {
-            FileHandle.standardError.write(Data("[touchy] loaded settings: \(recognizer)\n".utf8))
+            FileHandle.standardError.write(Data(
+                "[touchy] loaded settings from \(files.url(for: ConfigFiles.settings).path): \(recognizer)\n".utf8))
         }
         // Sliders change the value continuously while dragging; coalesce the writes.
         saveSubscription = $recognizer
             .dropFirst()
             .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
-            .sink { [weak self] value in self?.save(value) }
-    }
-
-    private func save(_ recognizer: RecognizerSettings) {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        if let data = try? encoder.encode(Persisted(recognizer: recognizer)) {
-            try? data.write(to: fileURL, options: .atomic)
-        }
+            .sink { [weak self] value in
+                self?.files.save(Persisted(recognizer: value), to: ConfigFiles.settings)
+            }
     }
 }
