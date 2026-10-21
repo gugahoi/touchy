@@ -14,10 +14,12 @@
     <string>Touchy</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
+    <!-- Placeholders: scripts/make-app.sh stamps the real version (from the
+         release tag / nearest v* git tag) into the built app. -->
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>0.0.0</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>0</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>LSMinimumSystemVersion</key>
