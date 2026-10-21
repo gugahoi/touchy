@@ -26,8 +26,10 @@ cask "touchy" do
 
   url "https://github.com/gugahoi/touchy/releases/download/v#{version}/${ASSET_NAME}"
   name "Touchy"
-  desc "Native macOS menu-bar app for remapping multitouch gestures"
+  desc "Menu-bar app for remapping multitouch gestures"
   homepage "https://github.com/gugahoi/touchy"
+
+  depends_on :macos
 
   app "Touchy.app"
 
