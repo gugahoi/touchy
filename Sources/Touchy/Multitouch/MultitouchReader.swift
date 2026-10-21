@@ -132,7 +132,13 @@ final class MultitouchReader {
     fileprivate func handleFrame(fingers: UnsafeMutablePointer<Finger>?, count: Int, timestamp: Double) {
         if debugEnabled {
             frameCount += 1
-            if count >= 3 && frameCount % 15 == 0 { dbg("frame: \(count) fingers") }
+            if count >= 3 && frameCount % 15 == 0 {
+                var touching = 0
+                if let fingers {
+                    for i in 0..<count where fingers[i].isTouching { touching += 1 }
+                }
+                dbg("frame: \(count) contacts, \(touching) touching")
+            }
         }
         recognizer.ingest(fingers: fingers, count: count, timestamp: timestamp)
     }
