@@ -5,7 +5,12 @@ struct ContentView: View {
     @ObservedObject var engine = GestureEngine.shared
     @StateObject private var recorder = KeyRecorder()
     @State private var accessibilityTrusted = Permissions.hasAccessibility
-    @State private var launchAtLogin = LoginItem.isEnabled
+    @State private var pane: Pane = .gestures
+
+    private enum Pane: String, CaseIterable {
+        case gestures = "Gestures"
+        case settings = "Settings"
+    }
 
     private let permissionTimer = Timer.publish(every: 1.5, on: .main, in: .common).autoconnect()
 
@@ -16,16 +21,21 @@ struct ContentView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            optionsBar
+            paneSwitcher
             Divider()
             if !accessibilityTrusted { permissionBanner }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    conflictNote
-                    section("Swipes", gestures: swipes)
-                    section("Taps", gestures: taps)
+            switch pane {
+            case .gestures:
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        conflictNote
+                        section("Swipes", gestures: swipes)
+                        section("Taps", gestures: taps)
+                    }
+                    .padding(16)
                 }
-                .padding(16)
+            case .settings:
+                SettingsView()
             }
             Divider()
             footer
@@ -51,20 +61,18 @@ struct ContentView: View {
         .padding(12)
     }
 
-    private var optionsBar: some View {
-        Toggle(isOn: $launchAtLogin) {
-            Text("Launch at login").font(.subheadline)
+    private var paneSwitcher: some View {
+        Picker("", selection: $pane) {
+            ForEach(Pane.allCases, id: \.self) { Text($0.rawValue).tag($0) }
         }
-        .toggleStyle(.checkbox)
-        .onChange(of: launchAtLogin) { newValue in
-            // Revert the toggle if the system rejects the change.
-            if !LoginItem.setEnabled(newValue) {
-                launchAtLogin = LoginItem.isEnabled
-            }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .onChange(of: pane) { _ in
+            // Don't leave a shortcut recording armed on a row that's no longer visible.
+            recorder.stop()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var permissionBanner: some View {

@@ -33,29 +33,30 @@ extension Finger {
 ///   every finger lifts, so without this a brief 3rd contact followed by a plain
 ///   2-finger scroll would be reported as a 3-finger swipe.
 /// - Past `swipeThreshold` of net travel → swipe in the dominant direction (once),
-///   provided at least 3 individual fingers moved that way. A resting thumb or palm
-///   plus two scrolling fingers moves the centroid too, but only 2 fingers travel.
+///   provided at least 3 individual fingers moved that way (unless
+///   `fingerTravelRatio` is 0). A resting thumb or palm plus two scrolling fingers
+///   moves the centroid too, but only 2 fingers travel.
 /// - On lift, if nothing was recognized and the sequence was short and nearly
 ///   stationary (measured over all frames, including <3-finger ones) → tap, using
 ///   the peak finger count seen.
 /// A `cooldown` after any emit prevents one physical gesture firing repeatedly.
+///
+/// Thresholds come from `settings` (see `RecognizerSettings`).
 final class GestureRecognizer {
-    /// Net centroid travel (fraction of pad) needed to call a swipe.
-    var swipeThreshold: Double = 0.12
-    /// Max net travel still considered a tap (forgiving of slight drift).
-    var tapMaxMovement: Double = 0.10
-    /// Max duration (seconds) still considered a tap.
-    var tapMaxDuration: Double = 0.4
+    /// User-tunable thresholds. Written from the main thread (Settings pane via
+    /// `GestureEngine`), read on the multitouch callback thread — hence the lock.
+    var settings: RecognizerSettings {
+        get { settingsLock.lock(); defer { settingsLock.unlock() }; return _settings }
+        set { settingsLock.lock(); _settings = newValue.clamped(); settingsLock.unlock() }
+    }
+    private let settingsLock = NSLock()
+    private var _settings = RecognizerSettings()
+    /// Per-frame snapshot of `settings`; only touched on the callback thread.
+    private var cfg = RecognizerSettings()
+
     /// Per-frame centroid step above this is treated as a finger-change
-    /// discontinuity and not accumulated as motion.
-    var jumpCap: Double = 0.08
-    /// For a swipe, each of at least 3 fingers must itself have travelled this
-    /// fraction of `swipeThreshold` in the swipe direction.
-    var fingerTravelRatio: Double = 0.5
-    /// Quiet period (seconds) after an emit before another gesture can fire.
-    /// Short enough that deliberate repeated taps register; long enough to debounce
-    /// the finger-lift jitter of a single physical gesture.
-    var cooldown: Double = 0.25
+    /// discontinuity and not accumulated as motion. Internal, not user-tunable.
+    private let jumpCap = 0.08
 
     var onGesture: ((Gesture) -> Void)?
 
@@ -102,6 +103,7 @@ final class GestureRecognizer {
     /// Called once per multitouch frame. `count` is the raw contact count reported
     /// by the framework; non-touching contacts are filtered out here.
     func ingest(fingers: UnsafePointer<Finger>?, count rawCount: Int, timestamp: Double) {
+        cfg = settings
         let (count, centroid) = touchingCentroid(fingers: fingers, count: rawCount)
 
         if count == 0 {
@@ -141,7 +143,7 @@ final class GestureRecognizer {
         guard !recognized, peakFingers >= 3, !inCooldown(timestamp) else { return }
 
         let distance = (netDX * netDX + netDY * netDY).squareRoot()
-        if distance >= swipeThreshold {
+        if distance >= cfg.swipeThreshold {
             let direction: SwipeDirection
             if abs(netDX) >= abs(netDY) {
                 direction = netDX > 0 ? .right : .left
@@ -149,7 +151,7 @@ final class GestureRecognizer {
                 direction = netDY > 0 ? .up : .down
             }
             let movers = fingersTravelled(direction, fingers: fingers, count: rawCount)
-            guard movers >= 3 else {
+            guard cfg.fingerTravelRatio <= 0 || movers >= 3 else {
                 if !rejectionLogged {
                     rejectionLogged = true
                     rdbg(String(format: "swipe %@ rejected: only %d finger(s) moved (net=%.3f, peak=%d)",
@@ -192,7 +194,7 @@ final class GestureRecognizer {
 
         guard !recognized, peakFingers >= 3, !inCooldown(timestamp) else { return }
 
-        if duration <= tapMaxDuration && tapDistance <= tapMaxMovement {
+        if duration <= cfg.tapMaxDuration && tapDistance <= cfg.tapMaxMovement {
             emit(.tap(clampFingers(peakFingers)), at: timestamp)
         }
     }
@@ -203,7 +205,7 @@ final class GestureRecognizer {
     }
 
     private func inCooldown(_ timestamp: Double) -> Bool {
-        lastEmitTime >= 0 && (timestamp - lastEmitTime) < cooldown
+        lastEmitTime >= 0 && (timestamp - lastEmitTime) < cfg.cooldown
     }
 
     private func clampFingers(_ n: Int) -> Int { min(max(n, 3), 5) }
@@ -239,7 +241,7 @@ final class GestureRecognizer {
     private func fingersTravelled(_ direction: SwipeDirection,
                                   fingers: UnsafePointer<Finger>?, count: Int) -> Int {
         guard let fingers else { return 0 }
-        let minTravel = swipeThreshold * fingerTravelRatio
+        let minTravel = cfg.swipeThreshold * cfg.fingerTravelRatio
         var movers = 0
         for i in 0..<count where fingers[i].isTouching {
             let f = fingers[i]

@@ -27,12 +27,7 @@ final class BindingStore: ObservableObject {
     private let lock = NSLock()
     private var snapshot: Persisted
 
-    private let fileURL: URL = {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let dir = base.appendingPathComponent("Touchy", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("bindings.json")
-    }()
+    private let fileURL = AppSupport.fileURL("bindings.json")
 
     private init() {
         if let data = try? Data(contentsOf: fileURL),

@@ -24,7 +24,10 @@ shows the last recognized gesture.
 
 *   `Sources/CMultitouch/` — C shim exposing the reverse-engineered framework header.
     The `Finger` struct layout is load-bearing; do not reorder fields.
-*   Bindings persist as JSON in `~/Library/Application Support/Touchy/bindings.json`.
+*   Bindings persist as JSON in `~/Library/Application Support/Touchy/bindings.json`;
+    recognizer tuning (`RecognizerSettings`, edited in the Settings tab) in
+    `settings.json` alongside it, via `SettingsStore`. `GestureEngine` pushes
+    setting changes into `GestureRecognizer.settings`.
 
 ## Two facts that drive most behavior
 
@@ -41,7 +44,8 @@ shows the last recognized gesture.
 ## Threading
 
 The multitouch frame callback (`mtFrameCallback`) runs on the framework's own thread.
-Only `CGEvent` posting and lock-protected `BindingStore.activeAction` are safe there.
+Only `CGEvent` posting, lock-protected `BindingStore.activeAction`, and the
+recognizer's lock-protected `settings` are safe there.
 Anything touching `@Published` state or Text Input Source APIs (`KeyCombo.display`)
 **must** hop to the main thread — see the `DispatchQueue.main.async` in `GestureEngine.handle`.
 
