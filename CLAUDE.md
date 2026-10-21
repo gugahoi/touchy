@@ -14,6 +14,11 @@ open Touchy.app
 
 There are no tests. A clean `swift build` is the bar for "done".
 
+Releases: push a `v*` tag; `.github/workflows/release.yml` builds, publishes and
+updates the Homebrew cask. `make-app.sh` stamps the version into the bundle
+(`TOUCHY_VERSION`, else the nearest `v*` tag), so don't bump the placeholder
+version in `Resources/Info.plist`.
+
 ## Architecture (data flow)
 
 `MultitouchReader` reads raw frames from the private `MultitouchSupport.framework`

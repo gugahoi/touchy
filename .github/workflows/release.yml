@@ -62,6 +62,8 @@ jobs:
           fi
 
       - name: Build app bundle
+        env:
+          TOUCHY_VERSION: ${{ steps.release.outputs.version }}
         run: ./scripts/make-app.sh release
 
       - name: Package release asset

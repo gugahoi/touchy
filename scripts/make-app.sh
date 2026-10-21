@@ -12,15 +12,39 @@ CONFIG="${1:-release}"
 APP="${ROOT}/Touchy.app"
 BIN_NAME="Touchy"
 
+# Version stamped into the bundle's Info.plist (the values in Resources/Info.plist
+# are placeholders). CI sets TOUCHY_VERSION from the release tag; otherwise use the
+# nearest v* git tag, or 0.0.0 if there is none.
+if [[ -n "${TOUCHY_VERSION:-}" ]]; then
+    RAW_VERSION="${TOUCHY_VERSION#v}"
+else
+    RAW_VERSION="$(git -C "$ROOT" describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || echo 0.0.0)"
+    RAW_VERSION="${RAW_VERSION#v}"
+fi
+# CFBundleShortVersionString must be 1–3 dot-separated integers, so drop any
+# pre-release suffix (1.3.0-beta.1 -> 1.3.0).
+if [[ "$RAW_VERSION" =~ ^([0-9]+(\.[0-9]+){0,2}) ]]; then
+    VERSION="${BASH_REMATCH[1]}"
+else
+    echo "error: can't derive an app version from '${RAW_VERSION}'" >&2
+    exit 1
+fi
+# CFBundleVersion: the commit count — increases monotonically, and tells a local
+# build apart from the release it's based on (e.g. 1.2.0 (40) vs 1.2.0 (43)).
+BUILD="$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null || echo 1)"
+
 echo "[1/5] Building (${CONFIG})"
 swift build -c "$CONFIG" --package-path "$ROOT" >/dev/null
 BIN_PATH="$(swift build -c "$CONFIG" --package-path "$ROOT" --show-bin-path)/${BIN_NAME}"
 
-echo "[2/5] Assembling ${APP}"
+echo "[2/5] Assembling ${APP} (version ${VERSION}, build ${BUILD})"
 rm -rf "$APP"
 mkdir -p "${APP}/Contents/MacOS" "${APP}/Contents/Resources"
 cp "$BIN_PATH" "${APP}/Contents/MacOS/${BIN_NAME}"
 cp "${ROOT}/Resources/Info.plist" "${APP}/Contents/Info.plist"
+# Must happen before codesigning: Info.plist is covered by the signature.
+plutil -replace CFBundleShortVersionString -string "$VERSION" "${APP}/Contents/Info.plist"
+plutil -replace CFBundleVersion -string "$BUILD" "${APP}/Contents/Info.plist"
 [[ -f "${ROOT}/Resources/MenuBarIcon.png" ]] && \
     cp "${ROOT}/Resources/MenuBarIcon.png" "${APP}/Contents/Resources/MenuBarIcon.png"
 

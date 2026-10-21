@@ -35,6 +35,10 @@ To develop, you can also `swift build` and run, but key emission is most reliabl
 from the signed `.app` because macOS tracks the permission grant by bundle id +
 signature.
 
+The app's version comes from the nearest `v*` git tag, with the commit count as
+the build number (e.g. `1.2.0 (40)`). Set `TOUCHY_VERSION=1.3.0` to override it;
+the release workflow does this from the tag being released.
+
 ## Configuring gestures
 
 1. Click the menu-bar icon to open the config window.
@@ -58,6 +62,8 @@ Switch to the **Settings** tab at the top of the window:
 - **Launch at login** registers Touchy as a login item (System Settings ▸ General
   ▸ Login Items) so it starts automatically. The login item points at the app's
   current location, so keep `Touchy.app` somewhere stable (e.g. `/Applications`).
+- **Version** shows the running version and build, e.g. `1.2.0 (40)` — handy
+  for bug reports.
 - **Gesture recognition tuning** — changes apply immediately, so you can use the
   footer's last-gesture indicator to try them out:
 
