@@ -62,6 +62,8 @@ Switch to the **Settings** tab at the top of the window:
 - **Launch at login** registers Touchy as a login item (System Settings ▸ General
   ▸ Login Items) so it starts automatically. The login item points at the app's
   current location, so keep `Touchy.app` somewhere stable (e.g. `/Applications`).
+- **Version** shows the running version and build, e.g. `1.2.0 (40)` — handy
+  for bug reports.
 - **Gesture recognition tuning** — changes apply immediately, so you can use the
   footer's last-gesture indicator to try them out:
 

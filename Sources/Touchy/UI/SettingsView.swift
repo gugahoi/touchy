@@ -19,6 +19,9 @@ struct SettingsView: View {
                             launchAtLogin = LoginItem.isEnabled
                         }
                     }
+                LabeledContent("Version") {
+                    Text(appVersion).textSelection(.enabled)
+                }
             }
 
             Section("Swipes") {
@@ -121,6 +124,19 @@ private struct ConfigFileRow: View {
 
 private func percent(_ v: Double) -> String { "\(Int((v * 100).rounded()))%" }
 private func milliseconds(_ v: Double) -> String { "\(Int((v * 1000).rounded())) ms" }
+
+/// e.g. "1.2.0 (40)" — stamped into the bundle by scripts/make-app.sh. A bare
+/// `swift build` binary has no bundle Info.plist, hence the fallback.
+private var appVersion: String {
+    let info = Bundle.main.infoDictionary
+    guard let version = info?["CFBundleShortVersionString"] as? String else {
+        return "Development build"
+    }
+    guard let build = info?["CFBundleVersion"] as? String, build != version else {
+        return version
+    }
+    return "\(version) (\(build))"
+}
 
 /// A labelled slider with its current value and an explanatory caption.
 private struct SettingSlider: View {
