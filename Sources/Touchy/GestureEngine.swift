@@ -15,11 +15,17 @@ final class GestureEngine: ObservableObject {
 
     private let reader = MultitouchReader.shared
     private let store = BindingStore.shared
+    private var settingsSubscription: AnyCancellable?
 
     private init() {
         accessibilityTrusted = Permissions.hasAccessibility
         reader.recognizer.onGesture = { [weak self] gesture in
             self?.handle(gesture)
+        }
+        // Push recognizer tuning now (the publisher replays the current value) and
+        // whenever the Settings pane changes it.
+        settingsSubscription = SettingsStore.shared.$recognizer.sink { [reader] settings in
+            reader.recognizer.settings = settings
         }
     }
 

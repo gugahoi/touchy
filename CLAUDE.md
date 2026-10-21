@@ -24,7 +24,16 @@ shows the last recognized gesture.
 
 *   `Sources/CMultitouch/` — C shim exposing the reverse-engineered framework header.
     The `Finger` struct layout is load-bearing; do not reorder fields.
-*   Bindings persist as JSON in `~/Library/Application Support/Touchy/bindings.json`.
+*   Config is two JSON files: `bindings.json` (`BindingStore`) and `settings.json`
+    (`SettingsStore` → `RecognizerSettings`, edited in the Settings tab;
+    `GestureEngine` pushes changes into `GestureRecognizer.settings`).
+    `ConfigFiles` resolves each file from `~/.config/touchy` first, then
+    `~/Library/Application Support/Touchy`, and saves back to the same place
+    (writing through symlinks — users keep these in dotfiles repos). Always go
+    through `ConfigFiles` rather than hard-coding a path.
+*   `examples/` holds sample config files in the exact format the app writes, plus
+    `examples/README.md` documenting every field. When a persisted type changes,
+    update both.
 
 ## Two facts that drive most behavior
 
@@ -41,7 +50,8 @@ shows the last recognized gesture.
 ## Threading
 
 The multitouch frame callback (`mtFrameCallback`) runs on the framework's own thread.
-Only `CGEvent` posting and lock-protected `BindingStore.activeAction` are safe there.
+Only `CGEvent` posting, lock-protected `BindingStore.activeAction`, and the
+recognizer's lock-protected `settings` are safe there.
 Anything touching `@Published` state or Text Input Source APIs (`KeyCombo.display`)
 **must** hop to the main thread — see the `DispatchQueue.main.async` in `GestureEngine.handle`.
 
@@ -54,4 +64,5 @@ tears down on sleep and re-arms on wake (with retry) — keep that intact.
 *   Swift 6 toolchain but the `Touchy` target uses **v5 language mode** on purpose
     (the `@convention(c)` callback fights strict concurrency) — don't "fix" this.
 *   Decoders for persisted types decode defensively (`decodeIfPresent`, legacy formats)
-    so an old `bindings.json` never throws and silently drops a binding.
+    so an old or hand-written config file never throws and silently drops a binding.
+    Don't rely on synthesized `Decodable` for them — it requires every key.

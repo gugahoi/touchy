@@ -1,0 +1,9 @@
+{
+  "recognizer" : {
+    "cooldown" : 0.25,
+    "fingerTravelRatio" : 0.5,
+    "swipeThreshold" : 0.12,
+    "tapMaxDuration" : 0.4,
+    "tapMaxMovement" : 0.1
+  }
+}
